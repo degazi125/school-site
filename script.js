@@ -65,3 +65,29 @@ function removeItem(id) {
 
 setInterval(executeBackup, 10000);
 window.onload = render;
+// Функция открытия бокового меню
+function openMenu() { 
+    document.getElementById('sidebar').classList.add('open'); 
+    document.getElementById('overlay').classList.add('active'); 
+}
+
+// Функция закрытия бокового меню
+function closeMenu() { 
+    document.getElementById('sidebar').classList.remove('open'); 
+    document.getElementById('overlay').classList.remove('active'); 
+}
+
+// Переключение тем оформления
+function changeStyleTheme() {
+    const style = document.getElementById('themeSelector').value;
+    document.documentElement.setAttribute('data-style', style);
+    localStorage.setItem('siteStyleTheme', style);
+}
+
+function toggleTheme() { 
+    const root = document.documentElement; 
+    const theme = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', theme); 
+    localStorage.setItem('siteDarkTheme', theme);
+}
+
