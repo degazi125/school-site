@@ -141,3 +141,8 @@ button:hover { opacity: 0.9; transform: translateY(-1px); }
 .lightbox { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 200; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: 0.2s; cursor: zoom-out; }
 .lightbox.active { opacity: 1; visibility: visible; }
 .lightbox img { max-width: 90%; max-height: 90%; border-radius: var(--radius-ui); }
+/* Переключение визуальных стилей оформления (data-style) */
+html[data-style="cyberpunk"] { --main-bg: #120136; --card-bg: #03001e; --text-color: #00f6ff; --accent: #ff007f; }
+html[data-style="terminal"] { --main-bg: #000000; --card-bg: #050505; --text-color: #33ff33; --accent: #00ff00; font-family: 'Courier New', monospace; }
+html[data-style="nordic"] { --main-bg: #e5e9f0; --card-bg: #ffffff; --text-color: #2e3440; --accent: #81a1c1; border-radius: 0px !important; }
+html[data-style="glass"] { /* Твой стандартный текущий стиль стеклянного эффекта */ }
