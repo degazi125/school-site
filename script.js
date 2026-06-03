@@ -1,38 +1,50 @@
-// База пользователей и начальные настройки
+// 1. БАЗА ДАННЫХ ПОЛЬЗОВАТЕЛЕЙ И РОЛЕЙ
 const defaultAccounts = {
-    "админ": { name: "Иван Сисадмин", role: "sysadmin", pass: "root", avatar: "https://ui-avatars.com/api/?name=SysAdmin&background=007aff&color=fff" },
+    "админ": { name: "Иван Сисадмин", role: "sysadmin", pass: "root", avatar: "https://ui-avatars.com/api/?name=Admin&background=007aff&color=fff" },
     "завуч": { name: "Елена Викторовна", role: "zavuch", pass: "12345", avatar: "https://ui-avatars.com/api/?name=Zavuch&background=ff3b30&color=fff" },
+    "учитель": { name: "Ольга Петровна", role: "teacher", pass: "teach575", avatar: "https://ui-avatars.com/api/?name=Teacher&background=34c759&color=fff" },
     "ученик1": { name: "Иван Иванов", role: "student", pass: "1111", avatar: "https://ui-avatars.com/api/?name=Student&background=ff9500&color=fff" }
 };
 
+// Инициализация состояний из хранилища браузера
 let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 let accountsDB = JSON.parse(localStorage.getItem('accountsDB')) || defaultAccounts;
 let bannedUsers = JSON.parse(localStorage.getItem('bannedUsers')) || [];
-let editingId = null;
 
-// Инициализация тем (включая СИСТЕМНУЮ)
+// 2. УПРАВЛЕНИЕ ШТОРКОЙ МЕНЮ
+function openMenu() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('overlay').classList.add('active');
+    checkAdminPanelVisibility();
+}
+function closeMenu() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('overlay').classList.remove('active');
+}
+
+// 3. АВТОМАТИЧЕСКАЯ НАСТРОЙКА ТЕМ ОФОРМЛЕНИЯ
 function initThemeAndStyles() {
-    // 1. Проверка системной темы (Темная/Светлая)
     const savedTheme = localStorage.getItem('siteDarkTheme');
     if (!savedTheme) {
+        // Умная системная тема: сверяем с настройками Windows/MacOS/Android
         const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         document.documentElement.setAttribute('data-theme', systemDark ? 'dark' : 'light');
     } else {
         document.documentElement.setAttribute('data-theme', savedTheme);
     }
     
-    // Следим за изменениями в самой Windows/смартфоне на лету
+    // Подписка на изменение темы ОС в реальном времени
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
         if (!localStorage.getItem('siteDarkTheme')) {
             document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
         }
     });
 
-    // 2. Загрузка визуального стиля
     const savedStyle = localStorage.getItem('siteStyleTheme') || 'glass';
     document.documentElement.setAttribute('data-style', savedStyle);
-    const selector = document.getElementById('themeSelector');
-    if(selector) selector.value = savedStyle;
+    if(document.getElementById('themeSelector')) {
+        document.getElementById('themeSelector').value = savedStyle;
+    }
 }
 
 function changeStyleTheme() {
@@ -48,35 +60,26 @@ function toggleTheme() {
     root.setAttribute('data-theme', next);
     localStorage.setItem('siteDarkTheme', next);
 }
-
-// Управление шторкой меню
-function openMenu() {
-    document.getElementById('sidebar').classList.add('open');
-    document.getElementById('overlay').classList.add('active');
-    checkAdminPanelVisibility();
-}
-function closeMenu() {
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('overlay').classList.remove('active');
-}
-
-// Авторизация
+// 4. СИСТЕМА ВХОДА И ПРОВЕРКИ ПРАВ
 function loginUser() {
     const login = document.getElementById('loginName').value.trim().toLowerCase();
     const pass = document.getElementById('loginPass').value;
     
     if (bannedUsers.includes(login)) {
-        alert("Этот аккаунт ЗАБЛОКИРОВАН администрацией!");
+        alert("Внимание! Ваш аккаунт ЗАБЛОКИРОВАН администрацией школы.");
         return;
     }
+    
     const user = accountsDB[login];
     if (user && user.pass === pass) {
         currentUser = { ...user, loginKey: login };
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
+        document.getElementById('loginName').value = '';
+        document.getElementById('loginPass').value = '';
         updateAuthUI();
         render();
     } else {
-        alert("Неверный логин или пароль");
+        alert("Неправильный логин или пароль!");
     }
 }
 
@@ -90,39 +93,70 @@ function logoutUser() {
 function updateAuthUI() {
     const loginForm = document.getElementById('loginForm');
     const loggedInState = document.getElementById('loggedInState');
-    if(!loginForm || !loggedInState) return;
+    const addItemForm = document.getElementById('addItemForm');
+    const studentForm = document.getElementById('studentForm');
 
     if (currentUser) {
         loginForm.style.display = 'none';
         loggedInState.style.display = 'block';
         document.getElementById('userAvatar').src = currentUser.avatar;
-        document.getElementById('currentUserInfo').innerHTML = `<b>${currentUser.name}</b> (${currentUser.role})`;
+        document.getElementById('currentUserInfo').innerHTML = `Привет, <b>${currentUser.name}</b><br><span style="font-size:12px; opacity:0.6;">Роль: ${currentUser.role}</span>`;
+        
+        // Кто может добавлять вещи: sysadmin, zavuch, teacher (Все кроме учеников/гостей)
+        if (currentUser.role !== 'student') {
+            addItemForm.style.display = 'block';
+            studentForm.style.display = 'none';
+        } else {
+            addItemForm.style.display = 'none';
+            studentForm.style.display = 'block';
+        }
     } else {
         loginForm.style.display = 'block';
         loggedInState.style.display = 'none';
+        addItemForm.style.display = 'none';
+        studentForm.style.display = 'block';
     }
     checkAdminPanelVisibility();
 }
-// Контроль панели Сисадмина/Завуча
+
+// ПРОВЕРКА РОЛЕЙ ДЛЯ ОТОБРАЖЕНИЯ ПАНЕЛИ СИСАДМИНА / ЗАВУЧА
 function checkAdminPanelVisibility() {
     const admPanel = document.getElementById('adminControls');
     if (!admPanel) return;
     
     if (currentUser && (currentUser.role === 'sysadmin' || currentUser.role === 'zavuch')) {
         admPanel.style.display = 'block';
-        // Если зашел именно СИСАДМИН — добавляем кнопки бэкапа и управления банами
+        
+        // Сценарий 1: Зашёл СИСАДМИН (Видит ВСЁ: Бэкапы + Баны)
         if (currentUser.role === 'sysadmin') {
             admPanel.innerHTML = `
-                <hr>
-                <p><b>Пульт Системного Администратора:</b></p>
-                <button onclick="downloadBackup()" style="width:100%; margin-bottom:5px;">📥 Скачать БД (Резервная копия)</button>
-                <input type="file" id="uploadBackupFile" onchange="uploadBackup(event)" style="display:none">
-                <button onclick="document.getElementById('uploadBackupFile').click()" style="width:100%; margin-bottom:5px;">📤 Восстановить БД из файла</button>
-                <div style="margin-top:10px;">
-                    <input type="text" id="banTarget" placeholder="Логин ученика для бана" style="width:60%">
-                    <button onclick="banUser()" style="background:#ff3b30; width:35%">Бан</button>
+                <hr style="opacity:0.1; margin:10px 0;">
+                <p style="font-weight:bold; margin-bottom:8px; font-size:14px; color:var(--accent);">⚙️ Пульт Системного Администратора</p>
+                <button onclick="downloadBackup()" class="btn-secondary" style="font-size:12px; padding:8px;">📥 Скачать резервную копию БД</button>
+                <input type="file" id="uploadFile" onchange="uploadBackup(event)" style="display:none">
+                <button onclick="document.getElementById('uploadFile').click()" class="btn-secondary" style="font-size:12px; padding:8px; margin-top:5px;">📤 Восстановить БД из файла</button>
+                
+                <div style="margin-top:12px; border-top:1px dashed rgba(0,0,0,0.1); padding-top:8px;">
+                    <label style="font-size:12px; font-weight:600;">Блокировка аккаунтов:</label>
+                    <div style="display:flex; gap:5px; margin-top:5px;">
+                        <input type="text" id="banTarget" placeholder="Логин ученика" style="margin:0; padding:6px;">
+                        <button onclick="banUser()" class="btn-danger" style="margin:0; width:70px; padding:6px;">БАН</button>
+                    </div>
+                    <p style="font-size:11px; opacity:0.5; margin-top:4px;">В черном списке: ${JSON.stringify(bannedUsers)}</p>
                 </div>
-                <p style="font-size:11px; color:gray; margin-top:5px;">Забаненные: ${JSON.stringify(bannedUsers)}</p>
+            `;
+        } 
+        // Сценарий 2: Зашёл ЗАВУЧ (Видит ТОЛЬКО Блокировку, бэкапы скрыты!)
+        else if (currentUser.role === 'zavuch') {
+            admPanel.innerHTML = `
+                <hr style="opacity:0.1; margin:10px 0;">
+                <p style="font-weight:bold; margin-bottom:8px; font-size:14px; color:var(--warning);">🔒 Панель контроля безопасности (Завуч)</p>
+                <label style="font-size:12px; font-weight:600;">Заблокировать нарушителя:</label>
+                <div style="display:flex; gap:5px; margin-top:5px;">
+                    <input type="text" id="banTarget" placeholder="Логин ученика" style="margin:0; padding:6px;">
+                    <button onclick="banUser()" class="btn-danger" style="margin:0; width:70px; padding:6px;">БАН</button>
+                </div>
+                <p style="font-size:11px; opacity:0.5; margin-top:4px;">Список заблокированных: ${JSON.stringify(bannedUsers)}</p>
             `;
         }
     } else {
@@ -130,25 +164,30 @@ function checkAdminPanelVisibility() {
     }
 }
 
-// Логика Бан-системы
+// 5. ФУНКЦИИ АДМИНИСТРИРОВАНИЯ (БАНЫ / РЕЗЕРВНЫЕ КОПИИ)
 function banUser() {
     const target = document.getElementById('banTarget').value.trim().toLowerCase();
-    if(!target || target === 'админ') return alert("Невозможно забанить");
-    if(!bannedUsers.includes(target)) {
+    if (!target) return;
+    if (target === 'админ' || target === 'завуч' || target === 'учитель') {
+        alert("Ошибка! Нельзя заблокировать администрацию.");
+        return;
+    }
+    if (!bannedUsers.includes(target)) {
         bannedUsers.push(target);
         localStorage.setItem('bannedUsers', JSON.stringify(bannedUsers));
-        alert(`Пользователь ${target} забанен!`);
-        if(currentUser && currentUser.loginKey === target) logoutUser();
+        alert(`Пользователь ${target} успешно заблокирован на платформе!`);
+        if (currentUser && currentUser.loginKey === target) logoutUser();
         checkAdminPanelVisibility();
+    } else {
+        alert("Этот пользователь уже находится в бане.");
     }
 }
 
-// Логика Резервного копирования (Бэкап JSON)
 function downloadBackup() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(localStorage));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "school_platform_backup.json");
+    downloadAnchor.setAttribute("download", "school_lost_found_db.json");
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     downloadAnchor.remove();
@@ -162,107 +201,53 @@ function uploadBackup(event) {
         try {
             const data = JSON.parse(e.target.result);
             Object.keys(data).forEach(key => localStorage.setItem(key, data[key]));
-            alert("База данных успешно восстановлена! Страница будет перезагружена.");
+            alert("Резервная копия базы данных развернута! Страница будет обновлена.");
             window.location.reload();
-        } catch(err) { alert("Ошибка чтения файла бэкапа!"); }
+        } catch(err) {
+            alert("Критическая ошибка при чтении файла бэкапа!");
+        }
     };
     reader.readAsText(file);
 }
-
-// Добавление новой вещи с таймером на 30 дней
+// 6. ТРЭКЕР ВЕЩЕЙ И АВТОМАТИЧЕСКИЕ ТАЙМЕРЫ ХРАНЕНИЯ
 function addItem() {
-    if(!currentUser || currentUser.role === 'student') return alert("Нет прав для добавления вещей!");
-    
+    const nameInput = document.getElementById('itemName');
+    if (!nameInput || nameInput.value.trim() === '') {
+        alert("Пожалуйста, введите название вещи!");
+        return;
+    }
+
     let items = JSON.parse(localStorage.getItem('items') || '[]');
-    const name = document.getElementById('name')?.value || "Без названия";
     
-    // Каждой вещи даем уникальный номер (ID) и фото-заглушку по названию предмета
+    // Набор красивых картинок-заглушек в зависимости от выбранной категории
+    const images = {
+        "Одежда": "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400&auto=format&fit=crop&q=60",
+        "Электроника": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&auto=format&fit=crop&q=60",
+        "Канцелярия": "https://images.unsplash.com/photo-1452860606245-08befc0ff44b?w=400&auto=format&fit=crop&q=60",
+        "Другое": "https://images.unsplash.com/photo-1543269865-cbf427effbad?w=400&auto=format&fit=crop&q=60"
+    };
+
+    const selectedCat = document.getElementById('itemCat').value;
+
     const newItem = {
-        id: Math.floor(1000 + Math.random() * 9000), // Красивый 4-значный номер вещи
-        name: name,
-        cat: document.getElementById('cat').value,
-        status: document.getElementById('status').value,
-        loc: document.getElementById('location').value,
-        // Генерация картинок по ключевым словам для фото-файлов вещи
-        photo: `https://images.unsplash.com/photo-1543269865-cbf427effbad?w=150&auto=format&fit=crop`, 
-        dateAdded: Date.now(),
-        // Таймер жизни вещи автоматический: текущее время + 30 дней в миллисекундах
-        expiry: Date.now() + (30 * 24 * 60 * 60 * 1000) 
+        id: Math.floor(1000 + Math.random() * 9000), // Случайный уникальный 4-значный номер вещи
+        name: nameInput.value.trim(),
+        cat: selectedCat,
+        status: document.getElementById('itemStatus').value,
+        loc: document.getElementById('itemLocation').value || "Не указано",
+        photo: images[selectedCat] || images["Другое"],
+        expiry: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 дней от текущего момента
     };
 
     items.push(newItem);
     localStorage.setItem('items', JSON.stringify(items));
-    if(document.getElementById('name')) document.getElementById('name').value = '';
+    
+    // Очищаем форму добавления
+    nameInput.value = '';
+    document.getElementById('itemLocation').value = '';
+    
     render();
     closeMenu();
-}
-
-// Расчет живого таймера отсчета в реальном времени
-function updateLiveTimers() {
-    const timerElements = document.querySelectorAll('.live-timer');
-    timerElements.forEach(el => {
-        const expiry = parseInt(el.getAttribute('data-expiry'));
-        const diff = expiry - Date.now();
-        
-        if (diff <= 0) {
-            el.innerHTML = "❌ Время хранения истекло. Удаление...";
-            // Автоматическое удаление вещи из базы данных по истечении таймера
-            let items = JSON.parse(localStorage.getItem('items') || '[]');
-            items = items.filter(i => i.expiry > Date.now());
-            localStorage.setItem('items', JSON.stringify(items));
-        } else {
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            const secs = Math.floor((diff % (1000 * 60)) / 1000);
-            el.innerHTML = `⏳ Осталось: ${days}д ${hours}ч ${mins}м ${secs}с`;
-        }
-    });
-}
-
-// Рендеринг карточек, Фотографий, Номеров и Статистики
-function render() {
-    const list = JSON.parse(localStorage.getItem('items') || '[]');
-    const query = (document.getElementById('search')?.value || '').toLowerCase();
-    
-    // Расчет статистики на плашках сверху экрана
-    const totalCount = list.length;
-    const lostCount = list.filter(i => i.status === 'lost').length;
-    const foundCount = list.filter(i => i.status === 'found').length;
-    
-    if(document.getElementById('itemsList')) { // Проверяем, что элементы есть на экране
-        document.querySelector('.total-stat || [class*="stat"]').innerHTML = totalCount; 
-        // Если у тебя кастомные ID на карточках статистики, они обновятся автоматически через фильтр
-    }
-
-    const filtered = list.filter(i => i.name.toLowerCase().includes(query));
-    
-    const container = document.getElementById('itemsList');
-    if(!container) return;
-
-    if(filtered.length === 0) {
-        container.innerHTML = `<p style="grid-column: 1/-1; text-align:center; opacity:0.5;">Вещей не найдено</p>`;
-        return;
-    }
-
-    container.innerHTML = filtered.map(i => `
-        <div class="card" style="position:relative;">
-            <img src="${i.photo}" alt="Item photo" style="width:100%; height:120px; object-fit:cover; border-radius:8px; margin-bottom:8px;">
-            
-            <span style="position:absolute; top:12px; left:12px; background:rgba(0,0,0,0.6); color:#fff; padding:2px 6px; border-radius:4px; font-size:11px;">#${i.id}</span>
-            <span class="badge ${i.status}" style="position:absolute; top:12px; right:12px;">${i.status.toUpperCase()}</span>
-            
-            <p class="card-title" style="font-weight:bold; margin:4px 0;">${i.name}</p>
-            <p class="card-info" style="font-size:13px; color:gray;">📍 ${i.loc} | Категория: ${i.cat}</p>
-            
-            <p class="live-timer" data-expiry="${i.expiry}" style="font-size:12px; color:#ff9500; font-weight:600; margin:5px 0;"></p>
-            
-            ${currentUser && (currentUser.role === 'sysadmin' || currentUser.role === 'zavuch') ? 
-                `<button onclick="removeItem(${i.id})" style="background:#ff3b30; color:white; border:none; padding:5px; border-radius:4px; width:100%; cursor:pointer;">Удалить</button>` : ''}
-        </div>
-    `).join('');
-    
-    updateLiveTimers();
 }
 
 function removeItem(id) {
@@ -271,11 +256,80 @@ function removeItem(id) {
     render();
 }
 
-// Запуск при старте страницы
+// ЕЖЕСЕКУНДНЫЙ ОБСЧЕТ ТАЙМЕРОВ УДАЛЕНИЯ В РЕАЛЬНОМ ВРЕМЕНИ
+function updateLiveTimers() {
+    const timers = document.querySelectorAll('.live-timer');
+    timers.forEach(timer => {
+        const expiry = parseInt(timer.getAttribute('data-expiry'));
+        const diff = expiry - Date.now();
+        
+        if (diff <= 0) {
+            timer.innerHTML = "❌ Время хранения истекло!";
+            // Самоочистка просроченных вещей
+            let items = JSON.parse(localStorage.getItem('items') || '[]').filter(i => i.expiry > Date.now());
+            localStorage.setItem('items', JSON.stringify(items));
+        } else {
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const secs = Math.floor((diff % (1000 * 60)) / 1000);
+            timer.innerHTML = `⏳ Удаление через: ${days}д ${hours}ч ${mins}м ${secs}с`;
+        }
+    });
+}
+
+// 7. ОТРИСОВКА КАРТОЧЕК И ОБНОВЛЕНИЕ СТАТИСТИКИ СВЕРХУ ЭКРАНА
+function render() {
+    const list = JSON.parse(localStorage.getItem('items') || '[]');
+    const searchQuery = document.getElementById('search').value.toLowerCase();
+    const statusQuery = document.getElementById('filterStatus').value;
+    const categoryQuery = document.getElementById('filterCategory').value;
+
+    // Обновляем счетчики на плашках статистики в реальном времени
+    document.getElementById('statTotal').innerText = list.length;
+    document.getElementById('statLost').innerText = list.filter(i => i.status === 'lost').length;
+    document.getElementById('statFound').innerText = list.filter(i => i.status === 'found').length;
+
+    // Фильтруем данные по трем критериям одновременно
+    const filtered = list.filter(item => {
+        const matchesSearch = item.name.toLowerCase().includes(searchQuery);
+        const matchesStatus = (statusQuery === 'all') || (item.status === statusQuery);
+        const matchesCategory = (categoryQuery === 'all') || (item.cat === categoryQuery);
+        return matchesSearch && matchesStatus && matchesCategory;
+    });
+
+    const container = document.getElementById('itemsList');
+    if (!container) return;
+
+    if (filtered.length === 0) {
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; opacity:0.5; font-size:16px;">Ничего не найдено по выбранным фильтрам...</div>`;
+        return;
+    }
+
+    container.innerHTML = filtered.map(i => `
+        <div class="card">
+            <span class="item-id">#${i.id}</span>
+            <span class="badge ${i.status}">${i.status}</span>
+            <img src="${i.photo}" alt="${i.name}">
+            <p class="card-title">${i.name}</p>
+            <p class="card-info">📍 Нахождение: <b>${i.loc}</b><br>Категория: ${i.cat}</p>
+            
+            <p class="live-timer" data-expiry="${i.expiry}"></p>
+            
+            ${currentUser && currentUser.role !== 'student' ? 
+                `<button onclick="removeItem(${i.id})" class="btn-danger" style="padding: 6px; font-size: 12px; margin-top: auto;">Удалить из базы</button>` : ''}
+        </div>
+    `).join('');
+
+    updateLiveTimers();
+}
+
+// ЗАПУСК ПРИ СТАРТЕ СТРАНИЦЫ
 window.onload = function() {
     initThemeAndStyles();
     updateAuthUI();
     render();
-    // Запускаем ежесекундный таймер обновления времени до удаления
+    
+    // Запускаем бесконечный ежесекундный цикл обновления времени на карточках
     setInterval(updateLiveTimers, 1000);
 };

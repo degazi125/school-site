@@ -1,162 +1,123 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" data-theme="light" data-style="glass">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Потеряшки 575 — Цифровая Платформа</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header class="header">
-    <h1>Потеряшки 575</h1>
-    <div class="menu-btn" onclick="openMenu()">☰ Меню</div>
-</header>
+    <header class="navbar">
+        <div class="logo">📦 Потеряшки 575</div>
+        <button class="menu-btn" onclick="openMenu()">☰ Меню</button>
+    </header>
 
-<div class="overlay" id="overlay" onclick="closeMenu()"></div>
+    <main class="container">
+        
+        <section class="stats-grid">
+            <div class="stat-card">
+                <h3>Всего вещей:</h3>
+                <p id="statTotal">0</p>
+            </div>
+            <div class="stat-card lost">
+                <h3>Ищут (LOST):</h3>
+                <p id="statLost">0</p>
+            </div>
+            <div class="stat-card found">
+                <h3>Найдено (FOUND):</h3>
+                <p id="statFound">0</p>
+            </div>
+        </section>
 
-<aside class="sidebar" id="sidebar">
-    <div class="close-btn" onclick="closeMenu()">✕</div>
-    
-    <h3>Авторизация</h3>
-    <div id="loginForm">
-        <input type="text" id="loginName" placeholder="Логин">
-        <input type="password" id="loginPass" placeholder="Пароль">
-        <button onclick="loginUser()" class="btn-outline">Войти</button>
-        <p id="loginError" class="error-msg"></p>
-    </div>
+        <section class="filters-panel">
+            <input type="text" id="search" placeholder="Начни вводить название вещи..." oninput="render()">
+            <div class="selectors">
+                <select id="filterStatus" onchange="render()">
+                    <option value="all">Все объявления</option>
+                    <option value="lost">Только утерянное (LOST)</option>
+                    <option value="found">Только найденное (FOUND)</option>
+                </select>
+                <select id="filterCategory" onchange="render()">
+                    <option value="all">Все категории предметов</option>
+                    <option value="Одежда">Одежда и обувь</option>
+                    <option value="Электроника">Электроника (телефоны, наушники)</option>
+                    <option value="Канцелярия">Канцелярия и учебники</option>
+                    <option value="Другое">Прочее</option>
+                </select>
+            </div>
+        </section>
 
-    <div id="loggedInState" style="display:none;" class="ui-box">
-        <div class="user-profile-box">
-            <label class="avatar-container" title="Нажмите для смены фото">
-                <img id="userAvatar" src="" alt="Аватар" class="user-avatar">
-                <input type="file" id="avatarUpload" accept="image/*" style="display:none;" onchange="updateUserAvatar(event)">
-            </label>
-            <div>
-                <strong id="currentUserInfo"></strong>
-                <div class="avatar-hint">Нажмите на фото, чтобы изменить</div>
+        <section class="items-grid" id="itemsList">
+            </section>
+    </main>
+
+    <div class="overlay" id="overlay" onclick="closeMenu()"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>Управление</h2>
+            <button class="close-btn" onclick="closeMenu()">×</button>
+        </div>
+
+        <div id="loginForm" class="menu-section">
+            <h3>Вход в систему</h3>
+            <input type="text" id="loginName" placeholder="Логин (например: завуч, учитель)">
+            <input type="password" id="loginPass" placeholder="Пароль">
+            <button class="btn-primary" onclick="loginUser()">Войти</button>
+        </div>
+
+        <div id="loggedInState" class="menu-section" style="display: none;">
+            <div class="user-profile">
+                <img id="userAvatar" src="" alt="Аватар">
+                <div class="user-text">
+                    <p id="currentUserInfo"></p>
+                    <button class="btn-secondary" onclick="logoutUser()">Выйти</button>
+                </div>
             </div>
         </div>
-        <button onclick="logoutUser()" class="btn-danger">Выйти из системы</button>
-    </div>
 
-    <div id="sysadminControls" class="admin-section" style="border-color: var(--warning);">
-        <h4 style="color:var(--warning);">Системные инструменты</h4>
-        <label class="checkbox-label">
-            <input type="checkbox" id="autoSaveToggle" onchange="toggleAutoSaveSetting()"> 
-            <span>Включить автосохранение</span>
-        </label>
-        <div class="backup-buttons">
-            <button onclick="exportData()" class="btn-outline btn-warn-spec">Скачать копию</button>
-            <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
-            <button onclick="document.getElementById('importFile').click()" class="btn-outline btn-warn-spec">Загрузить копию</button>
+        <div id="addItemForm" class="menu-section" style="display: none;">
+            <h3>Добавить новую вещь</h3>
+            <input type="text" id="itemName" placeholder="Название предмета (например: Ключи)">
+            <select id="itemCat">
+                <option value="Одежда">Одежда и обувь</option>
+                <option value="Электроника">Электроника</option>
+                <option value="Канцелярия">Канцелярия</option>
+                <option value="Другое">Другое</option>
+            </select>
+            <select id="itemStatus">
+                <option value="lost">Утеряно (LOST)</option>
+                <option value="found">Найдено (FOUND)</option>
+            </select>
+            <input type="text" id="itemLocation" placeholder="Где нашли / потеряли (каб. 34)">
+            <button class="btn-success" onclick="addItem()">Опубликовать на сайт</button>
         </div>
-    </div>
 
-    <div id="banControls" class="admin-section" style="border-color: var(--danger);">
-        <h4 style="color:var(--danger);">Модерация пользователей</h4>
-        <input type="text" id="banInput" placeholder="Логин нарушителя">
-        <button onclick="banUserByInput()" class="btn-danger" style="width:100%;">Заблокировать</button>
-        <div id="bannedList"></div>
-    </div>
-    
-    <div id="adminControls" class="admin-section">
-        <h4 id="adminTitle">Регистрация вещи</h4>
-        <input type="text" id="name" placeholder="Название предмета (например: Синяя куртка)">
-        <select id="status">
-            <option value="found">Найдено в школе</option>
-            <option value="lost">Утеряно (ищут)</option>
-        </select>
-        <select id="cat">
-            <option value="Одежда">Одежда</option>
-            <option value="Обувь">Обувь</option>
-            <option value="Сумки">Рюкзаки и сумки</option>
-            <option value="Учебники">Учебники и книги</option>
-            <option value="Канцелярия">Канцелярия</option>
-            <option value="Электроника">Электроника</option>
-            <option value="Ключи">Ключи</option>
-            <option value="Очки">Очки</option>
-            <option value="Спорт">Спортинвентарь</option>
-            <option value="Украшения">Украшения и часы</option>
-            <option value="Другое">Другое</option>
-        </select>
-        <input type="text" id="location" placeholder="Где нашли / потеряли">
-        <input type="text" id="contact" placeholder="Контакты для связи">
-        <select id="expiryDays">
-            <option value="3">Хранить: 3 дня</option>
-            <option value="7" selected>Хранить: 7 дней</option>
-            <option value="30">Хранить: 30 дней</option>
-            <option value="999">Хранить бессрочно</option>
-        </select>
-        <label class="file-label">Фотография предмета:</label>
-        <input type="file" id="img" accept="image/*">
-        <button id="saveBtn" onclick="addItem()">Опубликовать на стену</button>
-        <button id="cancelEditBtn" onclick="cancelEdit()" style="display:none;" class="btn-danger">Отменить изменения</button>
-    </div>
+        <div id="studentForm" class="menu-section">
+            <h3>Сообщить дежурным</h3>
+            <p class="hint">Напиши нам, если что-то потерял, и дежурные добавят это в базу.</p>
+            <input type="text" placeholder="Твоё имя, Фамилия и Класс">
+            <textarea placeholder="Что потерял, какого цвета и где примерно..."></textarea>
+            <button class="btn-success" onclick="alert('Ваше сообщение отправлено дежурным администраторам!')">Отправить дежурным</button>
+        </div>
 
-    <div id="messagesPanel" class="admin-section" style="border-color: var(--success);">
-        <h4 style="color:var(--success);">Заявки от учеников</h4>
-        <div id="inboxList"></div>
-    </div>
+        <div class="menu-section settings-section">
+            <h3>Внешний вид платформы</h3>
+            <label>Визуальный стиль:</label>
+            <select id="themeSelector" onchange="changeStyleTheme()">
+                <option value="glass">🔮 Жидкое стекло (Liquid Glass)</option>
+                <option value="cyberpunk">⚡ Неоновый Киберпанк</option>
+                <option value="terminal">📟 Матрица (Ретро-терминал)</option>
+                <option value="nordic">❄️ Скандинавский минимализм</option>
+            </select>
+            <button class="btn-secondary" style="margin-top: 10px; width:100%;" onclick="toggleTheme()">Сменить режим День/Ночь</button>
+        </div>
 
-    <div id="supportFormBox" class="ui-box">
-        <h4>Стол находок (Стол дежурных)</h4>
-        <p style="font-size: 13px; opacity:0.7; margin-top:-8px;">Потеряли вещь? Опишите её дежурным администраторам:</p>
-        <input type="text" id="supportUser" placeholder="Твоё имя, Фамилия и Класс">
-        <textarea id="supportText" placeholder="Что потерял, какого цвета и где примерно..." rows="3"></textarea>
-        <button onclick="sendRequest()" style="background: var(--success); margin-bottom:0;">Отправить дежурным</button>
-    </div>
+        <div id="adminControls" class="menu-section admin-panel" style="display: none;">
+            </div>
+    </aside>
 
-    <div class="ui-box" style="margin-bottom: 0; margin-top: 20px;">
-        <h4>Внешний вид</h4>
-        <select id="themeSelector" onchange="changeStyleTheme()">
-    <option value="glass">🔮 Стекло (Liquid Glass)</option>
-    <option value="cyberpunk">⚡ Киберпанк (Neon Light)</option>
-    <option value="terminal">📟 Ретро-Терминал (Matrix)</option>
-    <option value="nordic">❄️ Скандинавский минимализм</option>
-     </select>
-        <button onclick="toggleTheme()" class="btn-outline" style="margin: 0;">Сменить режим День/Ночь</button>
-    </div>
-</aside>
-
-<main class="container">
-    
-    <div class="stats-dashboard" id="statsDashboard">
-        <div class="stat-card">Всего вещей: <span id="statTotal">0</span></div>
-        <div class="stat-card lost">Ищут: <span id="statLost">0</span></div>
-        <div class="stat-card found">Найдено: <span id="statFound">0</span></div>
-    </div>
-
-    <div class="filters">
-        <input type="text" id="search" placeholder="Начни вводить название вещи для поиска..." oninput="render()">
-        <select id="statusFilter" onchange="render()">
-            <option value="Все">Все объявления</option>
-            <option value="found">Найденные вещи</option>
-            <option value="lost">Утерянные (в поиске)</option>
-        </select>
-        <select id="catFilter" onchange="render()">
-            <option value="Все">Все категории предметов</option>
-            <option value="Одежда">Одежда</option>
-            <option value="Обувь">Обувь</option>
-            <option value="Сумки">Рюкзаки и сумки</option>
-            <option value="Учебники">Учебники и книги</option>
-            <option value="Канцелярия">Канцелярия</option>
-            <option value="Электроника">Электроника</option>
-            <option value="Ключи">Ключи</option>
-            <option value="Очки">Очки</option>
-            <option value="Спорт">Спортинвентарь</option>
-            <option value="Украшения">Украшения и часы</option>
-            <option value="Другое">Другое</option>
-        </select>
-    </div>
-
-    <div class="items-grid" id="itemsList"></div>
-</main>
-
-<div class="lightbox" id="lightbox" onclick="closeLightbox()">
-    <img id="lightbox-img" src="" alt="Просмотр">
-</div>
-
-<script src="script.js" defer></script>
+    <script src="script.js"></script>
 </body>
 </html>
